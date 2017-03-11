@@ -13,13 +13,6 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  */
-/* TODO
- - Alarms - test notifications with custom lock handler
- - Test all unlock and open events
- - Close all doors
- - Lock all doors
- - Defaults?
-*/
 definition(
     name: "Door Monitor",
     namespace: "mjr9804",
@@ -84,19 +77,17 @@ preferences {
 
 def installed() {
 	log.debug "Installed with settings: ${settings}"
-
 	initialize()
 }
 
 def updated() {
 	log.debug "Updated with settings: ${settings}"
-
 	unsubscribe()
 	initialize()
 }
 
 def initialize() {
-    //subscribe(locks, "tamper", evtHandler)
+    subscribe(locks, "tamper", evtHandler)
 	subscribe(locks, "lock", evtHandler)
     subscribe(doors, "contact", evtHandler)
 }
@@ -121,6 +112,29 @@ def takeAction(event, text) {
    log.debug "current mode is $currMode" // "Home", "Away", "Night"
    switch (currMode) {
        case "Home":
+          if (event == "detected" && homeAlarmAlert == true) {
+              if (text.contains("keypad temporarily disabled")) {
+                  text = "Tamper alarm! "+text
+              }
+              sendAlert(text)
+          }
+          
+          if (event == "detected" && homeAlarmClose == true) {
+              for (door in doors) {
+                  for (command in door.supportedCommands) {
+                      if ("close" == command.getName()) {
+                          log.debug "Alarm detected, closing "+door
+                          door.close()
+                      }
+                  }
+              }
+          }
+          
+          if (event == "detected" && homeAlarmLock == true) {
+              log.debug "Alarm detected, locking "+locks
+              locks.lock()
+          }
+          
           break
        case "Away":
           if (event == "unlocked" && awayUnlockAlert == true) {
@@ -130,8 +144,28 @@ def takeAction(event, text) {
               sendAlert(text)
           }
           else if (event == "detected" && awayAlarmAlert == true) {
+              if (text.contains("keypad temporarily disabled")) {
+                  text = "Tamper alarm! "+text
+              }
               sendAlert(text)
           }
+          
+          if (event == "detected" && awayAlarmClose == true) {
+              for (door in doors) {
+                  for (command in door.supportedCommands) {
+                      if ("close" == command.getName()) {
+                          log.debug "Alarm detected, closing "+door
+                          door.close()
+                      }
+                  }
+              }
+          }
+          
+          if (event == "detected" && awayAlarmLock == true) {
+              log.debug "Alarm detected, locking "+locks
+              locks.lock()
+          } 
+          
           break
        case "Night":
           if (event == "unlocked" && nightUnlockAlert == true) {
@@ -141,8 +175,28 @@ def takeAction(event, text) {
               sendAlert(text)
           }
           else if (event == "detected" && nightAlarmAlert == true) {
+              if (text.contains("keypad temporarily disabled")) {
+                  text = "Tamper alarm! "+text
+              }
               sendAlert(text)
           }
+          
+          if (event == "detected" && nightAlarmClose == true) {
+              for (door in doors) {
+                  for (command in door.supportedCommands) {
+                      if ("close" == command.getName()) {
+                          log.debug "Alarm detected, closing "+door
+                          door.close()
+                      }
+                  }
+              }
+          }
+          
+          if (event == "detected" && nightAlarmLock == true) {
+              log.debug "Alarm detected, locking "+locks
+              locks.lock()
+          } 
+          
           break
    }
 }
