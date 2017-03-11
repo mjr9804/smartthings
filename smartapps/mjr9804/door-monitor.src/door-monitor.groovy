@@ -17,7 +17,7 @@ definition(
     name: "Door Monitor",
     namespace: "mjr9804",
     author: "Michael Robertson",
-    description: "Monitor doors/locks and get an alert when something unexpected happens",
+    description: "Monitor doors/locks and get an alert when something unexpected happens\n\nRequires locks to use https://github.com/mjr9804/smartthings/tree/master/devicetypes/mjr9804/custom-zwave-lock.src for alarm detection to work correctly.",
     category: "",
     iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
     iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
