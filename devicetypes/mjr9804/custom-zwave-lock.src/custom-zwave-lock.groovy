@@ -865,6 +865,33 @@ def setAlarmMode()
 	cmds
 }
 
+def setAlarmMode(newMode)
+{
+    log.debug "setAlarmMode called with newmode="+newMode
+    if (newMode == "0") {
+        newMode = 0x0
+    }
+    if (newMode == "1") {
+        newMode = 0x1
+    }
+    if (newMode == "2") {
+        newMode = 0x2
+    }
+    if (newMode == "3") {
+        newMode = 0x3
+    }
+	if (newMode in [0x0, 0x1, 0x2, 0x3]) {
+        def cmds = null
+
+		// change the alarmSensitivity to the 'unknown' value - it will get refreshed after the alarm mode is done changing
+		sendEvent(name: 'alarmSensitivity', value: 0, displayed: false )
+		cmds = secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 7, size: 1, configurationValue: [newMode])],5000)
+
+	    log.debug "setAlarmMode sending ${cmds.inspect()}"
+	    cmds
+    }
+}
+
 def setAlarmSensitivity(newValue)
 {
     log.debug "Called setAlarmSensitivity with newValue="+newValue.toString()
