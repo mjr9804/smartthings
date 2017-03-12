@@ -1,4 +1,5 @@
 /**
+ *  Adaptations on work originally by SmartThings and garyd9
  *  Copyright 2015 SmartThings
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
@@ -12,7 +13,7 @@
  *
  */
 metadata {
-	definition (name: "Custom Z-Wave Lock", namespace: "mjr9804", author: "SmartThings w/ adaptations by Michael Robertson") {
+	definition (name: "Custom Z-Wave Lock", namespace: "mjr9804", author: "Michael Robertson") {
 		capability "Actuator"
 		capability "Lock"
 		capability "Polling"
@@ -20,7 +21,14 @@ metadata {
 		capability "Sensor"
 		capability "Lock Codes"
 		capability "Battery"
+        
+        attribute	"alarmMode", "string"		// "unknown", "Off", "Alert", "Tamper", "Kick"
+        attribute	"alarmSensitivity", "number"	// 0 is unknown, otherwise 1 (most sensitive) to 5 (lease sensitive)
 
+        command "setAlarmMode"
+        command "setAlarmSensitivity"
+        command "setAlarmSensitivityUp"
+        command "setAlarmSensitivityDown"
 		command "unlockwtimeout"
 
 		fingerprint deviceId: "0x4003", inClusters: "0x98"
@@ -36,14 +44,13 @@ metadata {
 	}
 
 	tiles(scale: 2) {
-		multiAttributeTile(name:"toggle", type: "generic", width: 6, height: 4){
-			tileAttribute ("device.lock", key: "PRIMARY_CONTROL") {
-				attributeState "locked", label:'locked', action:"lock.unlock", icon:"st.locks.lock.locked", backgroundColor:"#79b821", nextState:"unlocking"
-				attributeState "unlocked", label:'unlocked', action:"lock.lock", icon:"st.locks.lock.unlocked", backgroundColor:"#ffffff", nextState:"locking"
-				attributeState "unknown", label:"unknown", action:"lock.lock", icon:"st.locks.lock.unknown", backgroundColor:"#ffffff", nextState:"locking"
-				attributeState "locking", label:'locking', icon:"st.locks.lock.locked", backgroundColor:"#79b821"
-				attributeState "unlocking", label:'unlocking', icon:"st.locks.lock.unlocked", backgroundColor:"#ffffff"
-			}
+		standardTile("toggle", "device.lock", width: 6, height: 4)
+		{
+			state "locked", label:'locked', action:"lock.unlock", icon:"st.locks.lock.locked", backgroundColor:"#79b821", nextState:"unlocking"
+			state "unlocked", label:'unlocked', action:"lock.lock", icon:"st.locks.lock.unlocked", backgroundColor:"#ffffff", nextState:"locking"
+			state "unknown", label:"unknown", action:"lock.lock", icon:"st.locks.lock.unknown", backgroundColor:"#ffffff", nextState:"locking"
+			state "locking", label:'locking', icon:"st.locks.lock.locked", backgroundColor:"#79b821"
+			state "unlocking", label:'unlocking', icon:"st.locks.lock.unlocked", backgroundColor:"#ffffff"
 		}
 		standardTile("lock", "device.lock", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
 			state "default", label:'lock', action:"lock.lock", icon:"st.locks.lock.locked", nextState:"locking"
@@ -51,6 +58,28 @@ metadata {
 		standardTile("unlock", "device.lock", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
 			state "default", label:'unlock', action:"lock.unlock", icon:"st.locks.lock.unlocked", nextState:"unlocking"
 		}
+        standardTile("alarmMode", "device.alarmMode", inactiveLabel: true, canChangeIcon: false, decoration: "flat", width: 6, height: 4)
+		{
+			state "unknown_alarmMode", label: 'Alarm Mode\nLoading...', icon:"st.unknown.unknown.unknown", action:"setAlarmMode", nextState:"unknown_alarmMode"
+			state "Off_alarmMode", label: 'Alarm: Off', icon:"st.alarm.beep.beep", action:"setAlarmMode", backgroundColor:"#ffffff", nextState:"unknown_alarmMode"
+			state "Alert_alarmMode", label: 'Alert Alarm', icon:"st.alarm.beep.beep", action:"setAlarmMode", backgroundColor:"#79b821", nextState:"unknown_alarmMode"
+			state "Tamper_alarmMode", label: 'Tamper Alarm', icon:"st.alarm.beep.beep", action:"setAlarmMode", backgroundColor:"#eae712", nextState:"unknown_alarmMode"
+			state "Kick_alarmMode", label: 'Kick Alarm', icon:"st.alarm.beep.beep", action:"setAlarmMode", backgroundColor:"#e52e0d", nextState:"unknown_alarmMode"
+		}
+        multiAttributeTile(name:"alarmSensitivity", type:"generic", width:6, height:4) {
+            tileAttribute("device.alarmSensitivity", key: "PRIMARY_CONTROL") {
+                attributeState "1", label:'High Sensitivity'
+                attributeState "2", label:'Medium-High Sensitivity'
+                attributeState "3", label:'Medium Sensitivity'
+                attributeState "4", label:'Medium-Low Sensitivity'
+                attributeState "5", label:'Low Sensitivity'
+                attributeState "default", label:'${currentValue}'
+            }
+            tileAttribute("device.alarmSensitivity", key: "VALUE_CONTROL") {
+                attributeState "VALUE_UP", action: "setAlarmSensitivityDown"
+                attributeState "VALUE_DOWN", action: "setAlarmSensitivityUp"
+            }
+        }
 		valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
 			state "battery", label:'${currentValue}% battery', unit:""
 		}
@@ -59,7 +88,7 @@ metadata {
 		}
 
 		main "toggle"
-		details(["toggle", "lock", "unlock", "battery", "refresh"])
+		details(["toggle", "lock", "unlock", "alarmMode", "alarmSensitivity", "battery", "refresh"])
 	}
 }
 
@@ -483,6 +512,163 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejec
 	createEvent(displayed: true, descriptionText: "$device.displayName rejected the last request")
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd)
+{
+	def result = []
+	def map = null		// use this for config reports that are handled
+
+	// use desc/val for generic handling of config reports (it will just send a descriptionText for the acitivty stream)
+	def desc = null
+	def val = ""
+
+	switch (cmd.parameterNumber)
+	{
+		case 0x3:
+			map = parseBinaryConfigRpt('beeperMode', cmd.configurationValue[0], 'Beeper Mode')
+			break
+
+		// done:  vacation mode toggle
+		case 0x4:
+			map = parseBinaryConfigRpt('vacationMode', cmd.configurationValue[0], 'Vacation Mode')
+			break
+
+		// done: lock and leave mode
+		case 0x5:
+			map = parseBinaryConfigRpt('lockLeave', cmd.configurationValue[0], 'Lock & Leave')
+			break
+
+		// these don't seem to be useful.  It's just a bitmap of the code slots used.
+		case 0x6:
+			desc = "User Slot Bit Fields"
+			val = "${cmd.configurationValue[3]} ${cmd.configurationValue[2]} ${cmd.configurationValue[1]} ${cmd.configurationValue[0]}"
+			break
+
+		// done:  the alarm mode of the lock.
+		case 0x7:
+			map = [ name:"alarmMode", displayed: true ]
+			// when getting the alarm mode, also query the sensitivity for that current alarm mode
+			switch (cmd.configurationValue[0])
+			{
+				case 0x00:
+					map.value = "Off_alarmMode"
+					break
+				case 0x01:
+					map.value = "Alert_alarmMode"
+					result << response(secure(zwave.configurationV2.configurationGet(parameterNumber: 0x08)))
+					break
+				case 0x02:
+					map.value = "Tamper_alarmMode"
+					result << response(secure(zwave.configurationV2.configurationGet(parameterNumber: 0x09)))
+					break
+				case 0x03:
+					map.value = "Kick_alarmMode"
+					result << response(secure(zwave.configurationV2.configurationGet(parameterNumber: 0x0A)))
+					break
+				default:
+					map.value = "unknown_alarmMode"
+			}
+			map.descriptionText = "$device.displayName Alarm Mode set to \"$map.value\""
+			break
+
+		// done: alarm sensitivities - one for each mode
+		case 0x8:
+		case 0x9:
+		case 0xA:
+			def whichMode = null
+			switch (cmd.parameterNumber)
+			{
+				case 0x8:
+					whichMode = "Alert"
+					break;
+				case 0x9:
+					whichMode = "Tamper"
+					break;
+				case 0xA:
+					whichMode = "Kick"
+					break;
+			}
+			def curAlarmMode = device.currentValue("alarmMode")
+			val = "${cmd.configurationValue[0]}"
+
+			map = [ descriptionText: "$device.displayName Alarm $whichMode Sensitivity set to $val", displayed: true ]
+
+			if (curAlarmMode == "${whichMode}_alarmMode")
+			{
+				map.name = "alarmSensitivity"
+				map.value = cmd.configurationValue[0]
+			}
+			else
+			{
+				log.debug "got sensitivity for $whichMode while in $curAlarmMode"
+				map.isStateChange = true
+			}
+
+			break
+
+		case 0xB:
+			map = parseBinaryConfigRpt('localControl', cmd.configurationValue[0], 'Local Alarm Control')
+			break
+
+		// how many times has the electric motor locked or unlock the device?
+		case 0xC:
+			desc = "Electronic Transition Count"
+			def ttl = cmd.configurationValue[3] + (cmd.configurationValue[2] * 0x100) + (cmd.configurationValue[1] * 0x10000) + (cmd.configurationValue[0] * 0x1000000)
+			val = "$ttl"
+			break
+
+		// how many times has the device been locked or unlocked manually?
+		case 0xD:
+			desc = "Mechanical Transition Count"
+			def ttl = cmd.configurationValue[3] + (cmd.configurationValue[2] * 0x100) + (cmd.configurationValue[1] * 0x10000) + (cmd.configurationValue[0] * 0x1000000)
+			val = "$ttl"
+			break
+
+		// how many times has there been a failure by the electric motor?  (due to jamming??)
+		case 0xE:
+			desc = "Electronic Failed Count"
+			def ttl = cmd.configurationValue[3] + (cmd.configurationValue[2] * 0x100) + (cmd.configurationValue[1] * 0x10000) + (cmd.configurationValue[0] * 0x1000000)
+			val = "$ttl"
+			break
+
+		// done: auto lock mode
+		case 0xF:
+			map = parseBinaryConfigRpt('autoLock', cmd.configurationValue[0], 'Auto Lock')
+			break
+
+		// this will be useful as an attribute/command usable by a smartapp
+		case 0x10:
+			map = [ name: 'pinLength', value: cmd.configurationValue[0], displayed: true, descriptionText: "$device.displayName PIN length configured to ${cmd.configurationValue[0]} digits"]
+			break
+
+		// not sure what this one stores
+		case 0x11:
+			desc = "Electronic High Preload Transition Count"
+			def ttl = cmd.configurationValue[3] + (cmd.configurationValue[2] * 0x100) + (cmd.configurationValue[1] * 0x10000) + (cmd.configurationValue[0] * 0x1000000)
+			val = "$ttl"
+			break
+
+		// ???
+		case 0x12:
+			desc = "Bootloader Version"
+			val = "${cmd.configurationValue[0]}"
+			break
+		default:
+			desc = "Unknown parameter ${cmd.parameterNumber}"
+			val = "${cmd.configurationValue[0]}"
+			break
+	}
+	if (map)
+	{
+		result << createEvent(map)
+	}
+	else if (desc != null)
+	{
+		// generic description text
+		result << createEvent([ descriptionText: "$device.displayName reports \"$desc\" configured as \"$val\"", displayed: true, isStateChange: true ])
+	}
+	result
+}
+
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	createEvent(displayed: false, descriptionText: "$device.displayName: $cmd")
 }
@@ -636,6 +822,105 @@ def getAllCodes() {
 	}
 }
 
+def setAlarmMode()
+{
+
+	def cs = device.currentValue("alarmMode")
+	def newMode = 0x0
+
+	def cmds = null
+
+	switch (cs)
+	{
+		case "Off_alarmMode":
+			newMode = 0x1
+			break
+
+		case "Alert_alarmMode":
+			newMode = 0x2
+			break
+
+		case "Tamper_alarmMode":
+			newMode = 0x3
+			break;
+
+		case "Kick_alarmMode":
+			newMode = 0x0
+			break;
+
+		case "unknown_alarmMode":
+		default:
+			// don't send a mode - instead request the current state
+			cmds = secureSequence([zwave.configurationV2.configurationGet(parameterNumber: 0x7)], 5000)
+
+	}
+	if (cmds == null)
+	{
+		// change the alarmSensitivity to the 'unknown' value - it will get refreshed after the alarm mode is done changing
+		sendEvent(name: 'alarmSensitivity', value: 0, displayed: false )
+		cmds = secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 7, size: 1, configurationValue: [newMode])],5000)
+	}
+
+	log.debug "setAlarmMode sending ${cmds.inspect()}"
+	cmds
+}
+
+def setAlarmSensitivity(newValue)
+{
+    log.debug "Called setAlarmSensitivity with newValue="+newValue.toString()
+	def cmds = null
+	if (newValue != null)
+	{
+		// there are three possible values to set.	which one depends on the current alarmMode
+		def cs = device.currentValue("alarmMode")
+
+		def paramToSet = 0
+
+        log.debug "setAlarmSensitivty cs="+cs
+		switch(cs)
+		{
+			case "Off_alarmMode":
+				// do nothing.	the slider should be disabled anyway
+				break
+			case "Alert_alarmMode":
+				// set param 8
+				paramToSet = 0x8
+				break;
+			case "Tamper_alarmMode":
+				paramToSet = 0x9
+				break
+			case "Kick_alarmMode":
+				paramToSet = 0xA
+				break
+			default:
+				sendEvent(descriptionText: "$device.displayName unable to set alarm sensitivity while alarm mode in unknown state", displayed: true, isStateChange: true)
+				break
+		}
+        log.debug "setAlarmSensitivity paramToSet="+paramToSet.toString()
+		if (paramToSet != 0)
+		{
+			// first set the attribute to 0 for UI purposes
+			//sendEvent(name: 'alarmSensitivity', value: 0, displayed: false )
+			// then add the actual attribute set call
+			cmds = secureSequence([zwave.configurationV2.configurationSet(parameterNumber: paramToSet, size: 1, configurationValue: [newValue])],5000)
+			log.debug "setAlarmSensitivity sending ${cmds.inspect()}"
+		}
+	}
+	cmds
+}
+
+def setAlarmSensitivityUp() {
+    int currentSensitivity = device.currentValue("alarmSensitivity")
+    if (currentSensitivity < 5) {
+        setAlarmSensitivity(currentSensitivity+1)
+    }
+}
+def setAlarmSensitivityDown() {
+    int currentSensitivity = device.currentValue("alarmSensitivity")
+    if (currentSensitivity > 1) {
+        setAlarmSensitivity(currentSensitivity-1)
+    }
+}
 private secure(physicalgraph.zwave.Command cmd) {
 	zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
 }
