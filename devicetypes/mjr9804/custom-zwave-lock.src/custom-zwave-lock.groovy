@@ -868,18 +868,6 @@ def setAlarmMode()
 def setAlarmMode(newMode)
 {
     log.debug "setAlarmMode called with newmode="+newMode
-    if (newMode == "0") {
-        newMode = 0x0
-    }
-    if (newMode == "1") {
-        newMode = 0x1
-    }
-    if (newMode == "2") {
-        newMode = 0x2
-    }
-    if (newMode == "3") {
-        newMode = 0x3
-    }
 	if (newMode in [0x0, 0x1, 0x2, 0x3]) {
         def cmds = null
 
