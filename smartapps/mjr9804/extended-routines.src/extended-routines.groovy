@@ -17,7 +17,7 @@ definition(
     name: "Extended Routines",
     namespace: "mjr9804",
     author: "Michael Robertson",
-    description: "Runs a custom set of actions, followed by an automation routine.",
+    description: "Runs a custom set of actions after an automation routine has run.",
     category: "",
     iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
     iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
@@ -25,24 +25,24 @@ definition(
 
 
 preferences {
-    page(name: "pageOne", title: "Extended Actions", nextPage: "selectActions", install: false, uninstall: true) {
+    page(name: "selectRoutines", nextPage: "pageTwo")
+    page(name: "pageTwo", title: "Perform these actions...", install: true, uninstall: true) {
         section("Alarms") {
-            input "alarmMode", "enum", title: "Set alarm mode to...", options: ["0": "Disabled", "1": "Alert", "2": "Tamper", "3": "Kick"], required: false
+            input "alarmMode", "enum", title: "Set alarm mode to...", options: ["0": "Disabled", "1": "Activity", "2": "Tamper", "3": "Forced Entry"], required: false
+            input "alarmSensitivity", "enum", title: "With a sensitivity of...", options: ["1": "High Sensitivity", "2": "Medium-High Sensitivity", "3": "Medium Sensitivity", "4": "Medium-Low Sensitivity", "5": "Low Sensitivity"], required: false
             input "locks", "capability.lock", title: "On these devices...", required: false, multiple: true
         }
     }
-    page(name: "selectActions")
 }
 
-def selectActions() {
-    dynamicPage(name: "selectActions", title: "Select Hello Home Action to Execute", install: true, uninstall: true) {    
+def selectRoutines() {
+    dynamicPage(name: "selectRoutines", nextPage: "pageTwo", install: false, uninstall: true) {    
         def actions = location.helloHome?.getPhrases()*.label
         if (actions) {
             actions.sort()
             section() {
                 // note: this doesn't work in the IDE simulator, it stores the index instead of the routine name
-                input "routine", "enum", title: "Then run this routine...", options: actions
-                input "runTime", "time", title: "Every day at..."
+                input "routine", "enum", title: "When this routine runs...", options: actions
             }
         }
     }
@@ -50,32 +50,73 @@ def selectActions() {
 
 def installed() {
 	log.debug "Installed with settings: ${settings}"
-
 	initialize()
 }
 
 def updated() {
 	log.debug "Updated with settings: ${settings}"
-
 	unsubscribe()
 	initialize()
 }
 
 def initialize() {
-    schedule(runTime, handler)
+    subscribe(location, "routineExecuted", handler)
 }
 
-def handler() {
-    if (alarmMode && locks) {
-        setAlarms()
+def handler(evt) {
+    log.debug "${evt.displayName} routine has run"
+    if (evt.displayName == settings.routine) {
+        if (alarmMode && locks) {
+            setAlarmMode()
+        }
+        if (alarmSensitivity && locks) {
+            setAlarmSensitivity()
+        }
     }
-    def actions = location.helloHome?.getPhrases()*.label
-    log.debug "Executing "+settings.routine
-    location.helloHome?.execute(settings.routine)
 }
 
-def setAlarms() {
+def setAlarmMode() {
+    def newMode = 0x0
+    log.debug "alarmMode="+alarmMode
+    switch (alarmMode) {
+        case "0":
+            newMode = 0x0
+            break
+        case "1":
+            newMode = 0x1
+            break
+        case "2":
+            newMode = 0x2
+            break
+        case "3":
+            newMode = 0x3
+            break
+    }
     for (lock in locks) {
-        lock.setAlarmMode(alarmMode)    
+        lock.setAlarmMode(newMode)    
+    }
+}
+
+def setAlarmSensitivity() {
+    def newValue = 0x0
+    switch (alarmSensitivity) {
+        case "1":
+            newValue = 0x5
+            break
+        case "2":
+            newValue = 0x4
+            break
+        case "3":
+            newValue = 0x3
+            break
+        case "4":
+            newValue = 0x2
+            break
+        case "5":
+            newValue = 0x1
+            break
+    }
+    for (lock in locks) {
+        lock.setAlarmSensitivity(newValue)    
     }
 }
