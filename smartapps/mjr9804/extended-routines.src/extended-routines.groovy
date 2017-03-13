@@ -92,9 +92,7 @@ def setAlarmMode() {
             newMode = 0x3
             break
     }
-    for (lock in locks) {
-        lock.setAlarmMode(newMode)    
-    }
+    locks.setAlarmMode(newMode)
 }
 
 def setAlarmSensitivity() {
@@ -116,7 +114,5 @@ def setAlarmSensitivity() {
             newValue = 0x1
             break
     }
-    for (lock in locks) {
-        lock.setAlarmSensitivity(newValue)    
-    }
+    locks.setAlarmSensitivity(newValue)
 }
