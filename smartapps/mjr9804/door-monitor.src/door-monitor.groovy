@@ -54,6 +54,7 @@ preferences {
         }
         section("If a door unlocks") {
             input "awayUnlockAlert", "bool", title: "Alert me", default: true, required: false
+            input "awayUnlockDisarm", "bool", title: "Disable the alarm", default: false, required: false
         }
         section("If a door opens") {
             input "awayOpenAlert", "bool", title: "Alert me", default: true, required: false
@@ -137,6 +138,10 @@ def takeAction(event, text) {
           
           break
        case "Away":
+          if (event == "unlocked" && awayUnlockDisarm == true) {
+              locks.setAlarmMode(0x0)
+              locks.setAlarmSensitivity(0x0)
+          }
           if (event == "unlocked" && awayUnlockAlert == true) {
               sendAlert(text)
           }
