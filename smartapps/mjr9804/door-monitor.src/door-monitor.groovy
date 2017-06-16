@@ -46,7 +46,15 @@ preferences {
             input "homeAlarmLock", "bool", title: "Lock all doors", default: false, required: false
         }
     }
-    page(name: "pageFour", title: "When I'm away...", nextPage: "pageFive", uninstall: true) {
+    page(name: "pageFour", title: "When I leave...", nextPage: "pageFive", uninstall: true) {
+        section("If a door was left open") {
+            input "leaveDoorOpenAlert", "bool", title: "Alert me", default: true, required: false
+        }
+        section("If a lock was left unlocked") {
+            input "leaveLockUnlockedAlert", "bool", title: "Alert me", default: true, required: false
+        }
+    }
+    page(name: "pageFive", title: "When I'm away...", nextPage: "pageSix", uninstall: true) {
         section("If an alarm goes off") {
             input "awayAlarmAlert", "bool", title: "Alert me", default: true, required: false
             input "awayAlarmClose", "bool", title: "Close all doors", default: false, required: false
@@ -60,7 +68,7 @@ preferences {
             input "awayOpenAlert", "bool", title: "Alert me", default: true, required: false
         }
     }
-    page(name: "pageFive", title: "When it's night...", install: true, uninstall: true) {
+    page(name: "pageSix", title: "When it's night...", install: true, uninstall: true) {
         section("If an alarm goes off") {
             input "nightAlarmAlert", "bool", title: "Alert me", default: true, required: false
             input "nightAlarmClose", "bool", title: "Close all doors", default: false, required: false
@@ -91,6 +99,7 @@ def initialize() {
     subscribe(locks, "tamper", evtHandler)
 	subscribe(locks, "lock", evtHandler)
     subscribe(doors, "contact", evtHandler)
+    subscribe(location, "mode", evtHandler)
 }
 
 def sendAlert(text) {
@@ -108,7 +117,37 @@ def sendAlert(text) {
     }
 }
 
-def takeAction(event, text) {
+def checkDoorsAndAlert() {
+    def openDoors = []
+    for (door in settings.doors) {
+        log.debug "door ${door}"
+        log.debug "state ${door.contactState.value}"
+        if (door.contactState.value == "open") {
+            openDoors.add(door)
+        }
+    }
+    if (openDoors.size() > 0) {
+        log.debug "Doors left open! ${openDoors}"
+        sendAlert("Doors left open! ${openDoors}")
+    }
+}
+
+def checkLocksAndAlert() {
+    def unlockedLocks = []
+    for (lock in settings.locks) {
+        log.debug "lock ${lock}"
+        log.debug "state ${lock.lockState.value}"
+        if (lock.lockState.value == "unlocked") {
+            unlockedLocks.add(lock)
+        }
+    }
+    if (unlockedLocks.size() > 0) {
+        log.debug "Locks left unlocked! ${unlockedLocks}"
+        sendAlert("Locks left unlocked! ${unlockedLocks}")
+    }
+}
+
+def takeAction(event, text, name) {
    def currMode = location.mode
    log.debug "current mode is $currMode" // "Home", "Away", "Night"
    switch (currMode) {
@@ -171,6 +210,13 @@ def takeAction(event, text) {
               locks.lock()
           } 
           
+          if (name == "mode" && leaveDoorOpenAlert == true) {
+              checkDoorsAndAlert()
+          }
+          if (name == "mode" && leaveLockUnlockedAlert == true) {
+              checkLocksAndAlert()
+          }
+          
           break
        case "Night":
           if (event == "unlocked" && nightUnlockAlert == true) {
@@ -207,7 +253,10 @@ def takeAction(event, text) {
 }
 
 def evtHandler(evt) {
+  log.debug "event name: ${evt.name}"
+  log.debug "display name: ${displayName}"
   log.debug "desc text: ${evt.descriptionText}"
   log.debug "string value: ${evt.stringValue}"
-  takeAction(evt.stringValue, evt.descriptionText)
+  log.debug "device: ${evt.device}"
+  takeAction(evt.stringValue, evt.descriptionText, evt.name)
 }
