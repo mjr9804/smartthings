@@ -97,7 +97,7 @@ def updated() {
 
 def initialize() {
     subscribe(locks, "tamper", evtHandler)
-	subscribe(locks, "lock", evtHandler)
+    subscribe(locks, "lock", evtHandler)
     subscribe(doors, "contact", evtHandler)
     subscribe(location, "mode", evtHandler)
 }
@@ -147,6 +147,11 @@ def checkLocksAndAlert() {
     }
 }
 
+def delayedModeCheck(data) {
+    log.debug "delayedModeCheck has fired"
+    location.mode != data.originalMode ?: sendAlert(data.alertText)
+}
+
 def takeAction(event, text, name) {
    def currMode = location.mode
    log.debug "current mode is $currMode" // "Home", "Away", "Night"
@@ -185,7 +190,7 @@ def takeAction(event, text, name) {
               sendAlert(text)
           }
           else if (event == "open" && awayOpenAlert == true) {
-              sendAlert(text)
+              runIn(60, delayedModeCheck, [data: [originalMode: "Away", alertText: text]]);
           }
           else if (event == "detected" && awayAlarmAlert == true) {
               if (text.contains("keypad temporarily disabled")) {
