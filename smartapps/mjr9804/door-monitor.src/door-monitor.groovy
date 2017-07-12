@@ -32,53 +32,54 @@ preferences {
     }
     page(name: "pageTwo", title: "Use these emergency contact methods", nextPage: "pageThree", uninstall: true) {
         section () {
-            input "pushNotif", "bool", title: "Send a push notification", default: false, required: false
-            input "textNotif1", "bool", title: "Send a text message to Phone #1", default: false, required: false
+            input "pushNotif", "bool", title: "Send a push notification", defaultValue: false, required: false
+            input "textNotif1", "bool", title: "Send a text message to Phone #1", defaultValue: false, required: false
             input "phone1", "phone", title: "Phone #1", required: false
-            input "textNotif2", "bool", title: "Send a text message to Phone #2", default: false, required: false
+            input "textNotif2", "bool", title: "Send a text message to Phone #2", defaultValue: false, required: false
             input "phone2", "phone", title: "Phone #2", required: false
         }
     }
     page(name: "pageThree", title: "When I'm home...", nextPage: "pageFour", uninstall: true) {
         section("If an alarm goes off") {
-            input "homeAlarmAlert", "bool", title: "Alert me", default: false, required: false
-            input "homeAlarmClose", "bool", title: "Close all doors", default: false, required: false
-            input "homeAlarmLock", "bool", title: "Lock all doors", default: false, required: false
+            input "homeAlarmAlert", "bool", title: "Alert me", defaultValue: false, required: false
+            input "homeAlarmClose", "bool", title: "Close all doors", defaultValue: false, required: false
+            input "homeAlarmLock", "bool", title: "Lock all doors", defaultValue: false, required: false
         }
     }
     page(name: "pageFour", title: "When I leave...", nextPage: "pageFive", uninstall: true) {
         section("If a door was left open") {
-            input "leaveDoorOpenAlert", "bool", title: "Alert me", default: true, required: false
+            input "leaveDoorOpenAlert", "bool", title: "Alert me", defaultValue: true, required: false
         }
         section("If a lock was left unlocked") {
-            input "leaveLockUnlockedAlert", "bool", title: "Alert me", default: true, required: false
+            input "leaveLockUnlockedAlert", "bool", title: "Alert me", defaultValue: true, required: false
         }
     }
     page(name: "pageFive", title: "When I'm away...", nextPage: "pageSix", uninstall: true) {
         section("If an alarm goes off") {
-            input "awayAlarmAlert", "bool", title: "Alert me", default: true, required: false
-            input "awayAlarmClose", "bool", title: "Close all doors", default: false, required: false
-            input "awayAlarmLock", "bool", title: "Lock all doors", default: false, required: false
+            input "awayAlarmAlert", "bool", title: "Alert me", defaultValue: true, required: false
+            input "awayAlarmClose", "bool", title: "Close all doors", defaultValue: false, required: false
+            input "awayAlarmLock", "bool", title: "Lock all doors", defaultValue: false, required: false
         }
         section("If a door unlocks") {
-            input "awayUnlockAlert", "bool", title: "Alert me", default: true, required: false
-            input "awayUnlockDisarm", "bool", title: "Disable the alarm", default: false, required: false
+            input "awayUnlockAlert", "bool", title: "Alert me", defaultValue: true, required: false
+            input "awayUnlockDisarm", "bool", title: "Disable the alarm", defaultValue: false, required: false
         }
         section("If a door opens") {
-            input "awayOpenAlert", "bool", title: "Alert me", default: true, required: false
+            input "awayOpenAlert", "bool", title: "Alert me", defaultValue: true, required: false
+            input "awayOpenDelay", "number", title: "With a delay of (seconds)", defaultValue: 60, required: false
         }
     }
     page(name: "pageSix", title: "When it's night...", install: true, uninstall: true) {
         section("If an alarm goes off") {
-            input "nightAlarmAlert", "bool", title: "Alert me", default: true, required: false
-            input "nightAlarmClose", "bool", title: "Close all doors", default: false, required: false
-            input "nightAlarmLock", "bool", title: "Lock all doors", default: false, required: false
+            input "nightAlarmAlert", "bool", title: "Alert me", defaultValue: true, required: false
+            input "nightAlarmClose", "bool", title: "Close all doors", defaultValue: false, required: false
+            input "nightAlarmLock", "bool", title: "Lock all doors", defaultValue: false, required: false
         }
         section("If a door unlocks") {
-            input "nightUnlockAlert", "bool", title: "Alert me", default: true, required: false
+            input "nightUnlockAlert", "bool", title: "Alert me", defaultValue: true, required: false
         }
         section("If a door opens") {
-            input "nightOpenAlert", "bool", title: "Alert me", default: true, required: false
+            input "nightOpenAlert", "bool", title: "Alert me", defaulValuet: true, required: false
         }
     }
 }
@@ -190,7 +191,7 @@ def takeAction(event, text, name) {
               sendAlert(text)
           }
           else if (event == "open" && awayOpenAlert == true) {
-              runIn(60, delayedModeCheck, [data: [originalMode: "Away", alertText: text]]);
+              runIn(awayOpenDelay, delayedModeCheck, [data: [originalMode: "Away", alertText: text]]);
           }
           else if (event == "detected" && awayAlarmAlert == true) {
               if (text.contains("keypad temporarily disabled")) {
