@@ -693,7 +693,10 @@ def unlockwtimeout() {
 }
 
 def refresh() {
-	def cmds = [secure(zwave.doorLockV1.doorLockOperationGet())]
+	def cmds = [
+    			secure(zwave.doorLockV1.doorLockOperationGet()), 
+                secure(zwave.configurationV2.configurationGet(parameterNumber: 0x7))
+               ]
 	if (state.assoc == zwaveHubNodeId) {
 		log.debug "$device.displayName is associated to ${state.assoc}"
 	} else if (!state.associationQuery) {
