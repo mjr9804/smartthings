@@ -259,10 +259,11 @@ def takeAction(event, text, name) {
 }
 
 def evtHandler(evt) {
+  def descText = evt.descriptionText.replaceAll('^\\{\\{ [a-zA-Z_]+ \\}\\}', "${evt.device}") // Use device name for descriptions that have variables
   log.debug "event name: ${evt.name}"
   log.debug "display name: ${displayName}"
-  log.debug "desc text: ${evt.descriptionText}"
+  log.debug "desc text: ${descText}"
   log.debug "string value: ${evt.stringValue}"
   log.debug "device: ${evt.device}"
-  takeAction(evt.stringValue, evt.descriptionText, evt.name)
+  takeAction(evt.stringValue, descText, evt.name)
 }
